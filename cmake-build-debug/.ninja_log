@@ -1,0 +1,23 @@
+# ninja log v5
+4	3219	1659218720418827166	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+3219	3446	1659218720645491163	leave_package_cli	bd23d31d542fa862
+3	3128	1659218720328828226	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+3	2518	1659218804171200395	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+3	2713	1659218804367864868	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+2713	2947	1659218804601195597	leave_package_cli	bd23d31d542fa862
+3	2311	1659218836310845048	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+2311	2548	1659218836544175826	leave_package_cli	bd23d31d542fa862
+2	1936	1659218897503519679	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+1937	2138	1659218897703517563	leave_package_cli	bd23d31d542fa862
+2	1827	1659218935233124265	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+1827	2033	1659218935436455488	leave_package_cli	bd23d31d542fa862
+2	1756	1659219006325732434	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+1756	1945	1659219006512397229	leave_package_cli	bd23d31d542fa862
+2	2104	1659219152244313215	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+3	2236	1659219152377645288	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+2236	2454	1659219152594309907	leave_package_cli	bd23d31d542fa862
+2	2262	1659219245913442261	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+2	2296	1659219246200106303	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+2296	2483	1659219246386771261	leave_package_cli	bd23d31d542fa862
+2	1720	1659219432061782022	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+1721	1905	1659219432245113759	leave_package_cli	bd23d31d542fa862

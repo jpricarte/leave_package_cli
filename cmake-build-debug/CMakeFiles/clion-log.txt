@@ -1,0 +1,4 @@
+/usr/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/opt/clion/bin/ninja/linux/ninja -G Ninja -S "/home/jpricarte/Documents/semestre/sisop II/leave_package_cli" -B "/home/jpricarte/Documents/semestre/sisop II/leave_package_cli/cmake-build-debug"
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/jpricarte/Documents/semestre/sisop II/leave_package_cli/cmake-build-debug
