@@ -29,8 +29,6 @@ namespace communication {
         NOP
     };
 
-    Command parseCommand(std::string s);
-
     struct Packet {
         Command command; // Which command
         unsigned int seqn; // the number in the sequence

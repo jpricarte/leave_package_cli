@@ -12,40 +12,8 @@
 #define PORT 4000
 
 using namespace std;
+using namespace communication;
 
-// Code from: https://www.javatpoint.com/how-to-split-strings-in-cpp
-vector<string> split_str( std::string const &str, const char delim)
-{
-    // create a stream from the string
-    std::stringstream s(str);
-
-    std::string s2;
-    std::vector <std::string> out{};
-    while (std:: getline (s, s2, delim) )
-    {
-        out.push_back(s2); // store the string in s2
-    }
-    return out;
-}
-
-void communicationHandler(communication::Transmitter* transmitter)
-{
-    communication::Command last_command = communication::NOP;
-    while(last_command != communication::EXIT)
-    {
-        string input{};
-        cout << ">> ";
-        cin >> input;
-        cout << endl;
-        auto args = split_str(input, ' ');
-        if (args.size() > 2)
-        {
-            cout << "invalid command" << endl;
-            continue;
-        }
-        last_command = communication::parseCommand(args[0]);
-    }
-}
 
 int main(int argc, char* argv[]) {
     int sockfd, n;

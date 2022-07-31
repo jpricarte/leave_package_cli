@@ -7,18 +7,7 @@
 #include "communication.h"
 
 namespace communication {
-    Command parseCommand(std::string s) {
-        if (s == "exit")
-            return EXIT;
-        if (s == "list_client")
-            return LIST_CLIENT;
-        if (s == "list_server")
-            return LIST_SERVER;
-        if (s == "get_sync_dir")
-            return GET_SYNC_DIR;
-        else
-            return NOP;
-    }
+
 
     void Transmitter::sendPackage(const Packet &packet) {
         // send command
