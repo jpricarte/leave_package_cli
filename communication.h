@@ -29,6 +29,8 @@ namespace communication {
         NOP
     };
 
+    Command parseCommand(std::string s);
+
     struct Packet {
         Command command; // Which command
         unsigned int seqn; // the number in the sequence
@@ -51,8 +53,16 @@ namespace communication {
         virtual ~Transmitter();
     };
 
+    // USABLE CONSTANTS
+    const Packet LOGIN_FAIL {EXIT, 1,
+                             14,
+                             (unsigned int) 14,
+                             (char*) "INVALID LOGIN"};
 
-
+    const Packet SUCCESS {OK, 1,
+                          17,
+                          (unsigned int) 17,
+                          (char*) "FINE (UNTIL NOW)"};
 } // communication
 
 #endif //LEAVE_PACKAGE_COMMUNICATION_H

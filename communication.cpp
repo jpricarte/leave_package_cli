@@ -7,6 +7,19 @@
 #include "communication.h"
 
 namespace communication {
+    Command parseCommand(std::string s) {
+        if (s == "exit")
+            return EXIT;
+        if (s == "list_client")
+            return LIST_CLIENT;
+        if (s == "list_server")
+            return LIST_SERVER;
+        if (s == "get_sync_dir")
+            return GET_SYNC_DIR;
+        else
+            return NOP;
+    }
+
     void Transmitter::sendPackage(const Packet &packet) {
         // send command
         auto res = write(socketfd, (const void *) &packet, sizeof(Packet));
@@ -42,7 +55,6 @@ namespace communication {
             std::cerr << "Error in payload" << std::endl;
             throw SocketReadError();
         }
-        std::cout << buf << std::endl;
         packet._payload = new char[packet.length];
         strcpy(packet._payload, buf);
         return packet;
