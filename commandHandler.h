@@ -15,6 +15,6 @@
 #include "lp_exceptions.h"
 
 
-void communicationHandler(communication::Transmitter* transmitter);
+void commandHandler(communication::Transmitter* transmitter);
 
 #endif //LEAVE_PACKAGE_CLI_COMMANDHANDLER_H

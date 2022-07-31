@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <vector>
 #include <sstream>
+#include <thread>
 
 #include "communication.h"
 #include "commandHandler.h"
@@ -74,11 +75,16 @@ int main(int argc, char* argv[]) {
         std::cerr << e.what() << std::endl;
     }
 
-    if (response == communication::OK)
+    if (response != communication::OK)
     {
-        communicationHandler(transmitter);
+        cerr << "something went wrong in server" << endl;
+        close(sockfd);
+        return -2;
     }
 
+    auto th1 = thread(&commandHandler, transmitter);
+
+    th1.join();
     close(sockfd);
     return 0;
 }

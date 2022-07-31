@@ -100,7 +100,7 @@ Command parseCommand(std::string s) {
         return NOP;
 }
 
-void communicationHandler(communication::Transmitter* transmitter)
+void commandHandler(communication::Transmitter* transmitter)
 {
     communication::Command last_command = communication::NOP;
     while(last_command != communication::EXIT)
