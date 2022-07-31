@@ -25,4 +25,10 @@ struct SocketReadError : public std::exception {
     }
 };
 
+struct InvalidNumOfArgs : public std::exception {
+    [[nodiscard]] const char *what() const noexcept override {
+        return "Invalid number of arguments in command";
+    }
+};
+
 #endif //LEAVE_PACKAGE_LP_EXCEPTIONS_H

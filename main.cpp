@@ -1,5 +1,4 @@
 #include <iostream>
-#include "communication.h"
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
@@ -8,6 +7,9 @@
 #include <netdb.h>
 #include <vector>
 #include <sstream>
+
+#include "communication.h"
+#include "commandHandler.h"
 
 #define PORT 4000
 
