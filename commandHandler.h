@@ -26,7 +26,7 @@ class CommandHandler {
     void listClient();
 
 public:
-    CommandHandler(communication::Transmitter *transmitter);
+    explicit CommandHandler(communication::Transmitter *transmitter);
 
     virtual ~CommandHandler();
 

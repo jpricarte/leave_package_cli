@@ -202,7 +202,16 @@ void CommandHandler::handle()
             continue;
         }
         last_command = parseCommand(args[0]);
-        handleCommand(last_command, args);
+        try {
+            handleCommand(last_command, args);
+        } catch(InvalidNumOfArgs& e) {
+            cout << "Invalid number of arguments, received " << args.size()
+                 << " intead of 2. Received:" << endl;
+            for (auto arg : args)
+            {
+                cout << "- " << arg << endl;
+            }
+        }
     }
 
     string end_connection = "goodbye my friend!";

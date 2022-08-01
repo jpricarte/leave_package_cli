@@ -1,45 +1,40 @@
 #include <iostream>
 #include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
+#include <cstring>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <vector>
-#include <sstream>
 #include <thread>
 
 #include "communication.h"
 #include "commandHandler.h"
 
-#define PORT 4001
 
 using namespace std;
 using namespace communication;
 
 
 int main(int argc, char* argv[]) {
-    int sockfd, n;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
 
-    char buffer[256];
-    if (argc < 2) {
-        fprintf(stderr,"usage %s hostname\n", argv[0]);
+    if (argc < 4) {
+        fprintf(stderr,"usage %s <username> <hostname> <port>\n", argv[0]);
         exit(0);
     }
 
-    server = gethostbyname(argv[1]);
-    if (server == NULL) {
+    struct hostent *server = gethostbyname(argv[2]);
+    if (server == nullptr) {
         fprintf(stderr,"ERROR, no such host\n");
         exit(0);
     }
 
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1)
         printf("ERROR opening socket\n");
 
+    struct sockaddr_in serv_addr{};
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT);
+    serv_addr.sin_port = htons(atoi(argv[3]));
     serv_addr.sin_addr = *((struct in_addr *)server->h_addr);
     bzero(&(serv_addr.sin_zero), 8);
 
@@ -49,8 +44,9 @@ int main(int argc, char* argv[]) {
         printf("ERROR connecting\n");
         return -1;
     }
+    auto* transmitter = new communication::Transmitter(&serv_addr, sockfd);
 
-    auto username = std::string("jordi\0");
+    std::string username = argv[1];
     communication::Packet packet{
         communication::LOGIN,
         0,
@@ -58,8 +54,7 @@ int main(int argc, char* argv[]) {
         (unsigned int) username.size(),
         const_cast<char *>(username.c_str())
     };
-    cout << packet._payload << endl;
-    auto* transmitter = new communication::Transmitter(&serv_addr, sockfd);
+
     try {
         transmitter->sendPackage(packet);
     } catch (SocketWriteError& e) {
