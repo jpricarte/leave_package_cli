@@ -12,7 +12,7 @@
 #include "communication.h"
 #include "commandHandler.h"
 
-#define PORT 4000
+#define PORT 4001
 
 using namespace std;
 using namespace communication;
@@ -82,9 +82,13 @@ int main(int argc, char* argv[]) {
         return -2;
     }
 
-    auto th1 = thread(&commandHandler, transmitter);
+    auto* command_handler = new CommandHandler(transmitter);
+
+    auto th1 = thread(&CommandHandler::handle, command_handler);
 
     th1.join();
+
+    delete command_handler;
     close(sockfd);
     return 0;
 }
