@@ -12,18 +12,18 @@ using namespace communication;
 vector<string> split_str( std::string const &str, const char delim)
 {
     // create a stream from the string
-    std::stringstream s(str);
+    std::stringstream stream(str);
 
-    std::string s2;
+    std::string buf;
     std::vector <std::string> out{};
-    while (std:: getline (s, s2, delim) )
+    while (std::getline(stream, buf, delim))
     {
-        out.push_back(s2); // store the string in s2
+        out.push_back(buf); // store the string in s2
     }
     return out;
 }
 
-Command parseCommand(std::string s) {
+Command parseCommand(const std::string& s) {
     if (s == "exit")
         return EXIT;
     if (s == "list_client")
@@ -42,8 +42,86 @@ Command parseCommand(std::string s) {
         return NOP;
 }
 
-
 CommandHandler::CommandHandler(Transmitter *transmitter) : transmitter(transmitter) {}
+
+
+CommandHandler::~CommandHandler() {
+    delete transmitter;
+}
+
+void CommandHandler::handle()
+{
+    communication::Command last_command = communication::NOP;
+    while(last_command != communication::EXIT)
+    {
+        string input{};
+        cout << ">> ";
+        getline(cin, input);
+        if (input.empty())
+        {
+            continue;
+        }
+        auto args = split_str(input, ' ');
+        if (args.size() > 2)
+        {
+            cout << "invalid command" << endl;
+            continue;
+        }
+        last_command = parseCommand(args[0]);
+
+        try {
+            handleCommand(last_command, args);
+        } catch(InvalidNumOfArgs& e) {
+            cout << "Invalid number of arguments, received " << args.size()
+                 << " intead of 2. Received:" << endl;
+            for (auto arg : args)
+            {
+                cout << "- " << arg << endl;
+            }
+        }
+    }
+
+    string end_connection = "goodbye my friend!";
+    Packet finishConnectionPacket{
+            EXIT,
+            1,
+            end_connection.size(),
+            (unsigned int) end_connection.size(),
+            (char*) end_connection.c_str()
+    };
+    transmitter->sendPackage(finishConnectionPacket);
+}
+
+void CommandHandler::handleCommand(const Command& command, const vector<string>& args) {
+
+    if ( (command == UPLOAD || command == DOWNLOAD || command == DELETE) && args.size() != 2 )
+        throw InvalidNumOfArgs();
+
+    switch (command) {
+        case UPLOAD:
+            uploadFile(args[1]);
+            break;
+        case DOWNLOAD:
+            downloadFile(args[1]);
+            break;
+        case DELETE:
+            deleteFile(args[1]);
+            break;
+        case GET_SYNC_DIR:
+            getSyncDir();
+            break;
+        case LIST_SERVER:
+            listServer();
+            break;
+        case LIST_CLIENT:
+            listClient();
+            break;
+        case NOP:
+            cerr << "That's not a command" << endl;
+        default:
+            break;
+    }
+}
 
 void CommandHandler::uploadFile(const string& filename)
 {
@@ -153,80 +231,4 @@ void CommandHandler::listClient()
 {
     // TODO: listar arquivos associados a pasta sync_dir
     cerr << "not implemented" << endl;
-}
-
-void CommandHandler::handleCommand(const Command& command, const vector<string>& args) {
-
-    if ( (command == UPLOAD || command == DOWNLOAD || command == DELETE) && args.size() != 2 )
-        throw InvalidNumOfArgs();
-
-    switch (command) {
-        case UPLOAD:
-            uploadFile(args[1]);
-            break;
-        case DOWNLOAD:
-            downloadFile(args[1]);
-            break;
-        case DELETE:
-            deleteFile(args[1]);
-            break;
-        case GET_SYNC_DIR:
-            getSyncDir();
-            break;
-        case LIST_SERVER:
-            listServer();
-            break;
-        case LIST_CLIENT:
-            listClient();
-            break;
-        case NOP:
-            cerr << "That's not a command" << endl;
-        default:
-            break;
-    }
-}
-
-void CommandHandler::handle()
-{
-    communication::Command last_command = communication::NOP;
-    while(last_command != communication::EXIT)
-    {
-        string input{};
-        cout << ">> ";
-        cin >> input;
-        cout << endl;
-        auto args = split_str(input, ' ');
-        if (args.size() > 2)
-        {
-            cout << "invalid command" << endl;
-            continue;
-        }
-        last_command = parseCommand(args[0]);
-
-        try {
-            handleCommand(last_command, args);
-        } catch(InvalidNumOfArgs& e) {
-            cout << "Invalid number of arguments, received " << args.size()
-                 << " intead of 2. Received:" << endl;
-            for (auto arg : args)
-            {
-                cout << "- " << arg << endl;
-            }
-        }
-    }
-
-    string end_connection = "goodbye my friend!";
-    Packet finishConnectionPacket{
-        EXIT,
-        1,
-        end_connection.size(),
-        (unsigned int) end_connection.size(),
-        (char*) end_connection.c_str()
-    };
-    transmitter->sendPackage(finishConnectionPacket);
-
-}
-
-CommandHandler::~CommandHandler() {
-    delete transmitter;
 }

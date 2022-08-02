@@ -53,6 +53,7 @@ namespace communication {
         Transmitter(sockaddr_in *clientAddr, int socketfd);
 
         virtual ~Transmitter();
+
     };
 } // communication
 
