@@ -8,9 +8,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <ostream>
-#include <atomic>
+#include <semaphore>
 #include <iostream>
 #include <string>
+#include <sstream>
+#include <cstring>
+#include <atomic>
 
 #include "lp_exceptions.h"
 
@@ -38,6 +41,7 @@ namespace communication {
     };
 
     class Transmitter {
+        std::binary_semaphore* socket_semaphore;
         struct sockaddr_in* client_addr;
         int socketfd;
 
@@ -50,17 +54,6 @@ namespace communication {
 
         virtual ~Transmitter();
     };
-
-    // USABLE CONSTANTS
-    const Packet LOGIN_FAIL {EXIT, 1,
-                             14,
-                             (unsigned int) 14,
-                             (char*) "INVALID LOGIN"};
-
-    const Packet SUCCESS {OK, 1,
-                          17,
-                          (unsigned int) 17,
-                          (char*) "FINE (UNTIL NOW)"};
 } // communication
 
 #endif //LEAVE_PACKAGE_COMMUNICATION_H

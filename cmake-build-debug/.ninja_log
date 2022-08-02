@@ -1,4 +1,9 @@
 # ninja log v5
-3	2323	1659306723507436866	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
-2940	3213	1659306724394100009	leave_package_cli	bd23d31d542fa862
-3	2940	1659306724120767762	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+1	3167	1659396891718987847	CMakeFiles/leave_package_cli.dir/commandHandler.cpp.o	a872d8da5e123ea6
+1	2391	1659396890942317376	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+3078	3445	1659400984788832591	leave_package_cli	29e7d55194e4bcb7
+2	3078	1659400984428832342	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+16	2599	1659404228241822438	CMakeFiles/leave_package_cli.dir/communication.cpp.o	1d34788a5eb00701
+15	3326	1659404228968486546	CMakeFiles/leave_package_cli.dir/main.cpp.o	f87be9e57b60c099
+16	3365	1659404229008486405	CMakeFiles/leave_package_cli.dir/commandHandler.cpp.o	a872d8da5e123ea6
+3365	3609	1659404229251818883	leave_package_cli	29e7d55194e4bcb7

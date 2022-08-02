@@ -79,9 +79,9 @@ int main(int argc, char* argv[]) {
 
     auto* command_handler = new CommandHandler(transmitter);
 
-    auto th1 = thread(&CommandHandler::handle, command_handler);
+    auto sender = thread(&CommandHandler::handle, command_handler);
 
-    th1.join();
+    sender.join();
 
     delete command_handler;
     close(sockfd);

@@ -202,6 +202,7 @@ void CommandHandler::handle()
             continue;
         }
         last_command = parseCommand(args[0]);
+
         try {
             handleCommand(last_command, args);
         } catch(InvalidNumOfArgs& e) {
