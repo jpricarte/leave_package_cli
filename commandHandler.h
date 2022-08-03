@@ -13,12 +13,14 @@
 
 #include "communication.h"
 #include "lp_exceptions.h"
+#include "fileManager.h"
 
 class CommandHandler {
+    FileManager* file_manager;
     communication::Transmitter* transmitter;
 
     void handleCommand(const communication::Command& command, const std::vector<std::string>& args);
-    void uploadFile(const std::string& filename);
+    void uploadFile(const std::string& file_path);
     void downloadFile(const std::string& filename);
     void deleteFile(const std::string& filename);
     void getSyncDir();

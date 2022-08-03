@@ -67,6 +67,12 @@ build CMakeFiles/leave_package_cli.dir/commandHandler.cpp.o: CXX_COMPILER__leave
   OBJECT_DIR = CMakeFiles/leave_package_cli.dir
   OBJECT_FILE_DIR = CMakeFiles/leave_package_cli.dir
 
+build CMakeFiles/leave_package_cli.dir/fileManager.cpp.o: CXX_COMPILER__leave_package_cli_Debug /home/jpricarte/Documents/semestre/sisop$ II/leave_package_cli/fileManager.cpp || cmake_object_order_depends_target_leave_package_cli
+  DEP_FILE = CMakeFiles/leave_package_cli.dir/fileManager.cpp.o.d
+  FLAGS = -g -std=gnu++20
+  OBJECT_DIR = CMakeFiles/leave_package_cli.dir
+  OBJECT_FILE_DIR = CMakeFiles/leave_package_cli.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target leave_package_cli
@@ -75,7 +81,7 @@ build CMakeFiles/leave_package_cli.dir/commandHandler.cpp.o: CXX_COMPILER__leave
 #############################################
 # Link the executable leave_package_cli
 
-build leave_package_cli: CXX_EXECUTABLE_LINKER__leave_package_cli_Debug CMakeFiles/leave_package_cli.dir/main.cpp.o CMakeFiles/leave_package_cli.dir/communication.cpp.o CMakeFiles/leave_package_cli.dir/commandHandler.cpp.o
+build leave_package_cli: CXX_EXECUTABLE_LINKER__leave_package_cli_Debug CMakeFiles/leave_package_cli.dir/main.cpp.o CMakeFiles/leave_package_cli.dir/communication.cpp.o CMakeFiles/leave_package_cli.dir/commandHandler.cpp.o CMakeFiles/leave_package_cli.dir/fileManager.cpp.o
   FLAGS = -g
   LINK_FLAGS = -rdynamic
   LINK_LIBRARIES = -lpthread

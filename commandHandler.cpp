@@ -42,7 +42,13 @@ Command parseCommand(const std::string& s) {
         return NOP;
 }
 
-CommandHandler::CommandHandler(Transmitter *transmitter) : transmitter(transmitter) {}
+CommandHandler::CommandHandler(Transmitter *transmitter) : transmitter(transmitter) {
+    if (filesystem::exists("sync_dir")) {
+        file_manager = new FileManager("sync_dir");
+    } else {
+        file_manager = nullptr;
+    }
+}
 
 
 CommandHandler::~CommandHandler() {
@@ -97,6 +103,13 @@ void CommandHandler::handleCommand(const Command& command, const vector<string>&
     if ( (command == UPLOAD || command == DOWNLOAD || command == DELETE) && args.size() != 2 )
         throw InvalidNumOfArgs();
 
+    if (file_manager == nullptr &&
+        command != GET_SYNC_DIR && command != LIST_SERVER && command != NOP && command != EXIT)
+    {
+        cout << "You should use get_sync_dir first" << endl;
+        return;
+    }
+
     switch (command) {
         case UPLOAD:
             uploadFile(args[1]);
@@ -123,28 +136,28 @@ void CommandHandler::handleCommand(const Command& command, const vector<string>&
     }
 }
 
-void CommandHandler::uploadFile(const string& filename)
+void CommandHandler::uploadFile(const string& file_path)
 {
-    // TODO: abrir arquivo, se abrir bonitinho, manda pro servidor,
-    string mock_filename = "fakefile.txt";
-    string mock_file = "I'm a file, please download me!";
+    string content = FileManager::readUnwatchedFile(file_path);
+    filesystem::path fpath(file_path);
+    string filename = fpath.filename();
 
     // primeiro, envia o nome e outros metadados (se precisar) do arquivo
     Packet metadata_packet {
             communication::UPLOAD,
             1,
-            mock_filename.size(),
-            (unsigned int) mock_filename.size(),
-            (char*) mock_filename.c_str()
+            filename.size(),
+            (unsigned int) filename.size(),
+            (char*) filename.c_str()
     };
 
     // depois, envia o arquivo
     Packet data_packet {
             communication::UPLOAD,
             2,
-            mock_file.size(),
-            (unsigned int) mock_file.size(),
-            (char*) mock_file.c_str()
+            content.size(),
+            (unsigned int) content.size(),
+            (char*) content.c_str()
     };
 
     try {
@@ -153,7 +166,7 @@ void CommandHandler::uploadFile(const string& filename)
     } catch (SocketWriteError& e) {
         cerr << e.what() << endl;
     }
-    cerr << "not implemented" << endl;
+
 }
 
 void CommandHandler::downloadFile(const string& filename)
@@ -193,6 +206,10 @@ void CommandHandler::deleteFile(const string& filename)
 
 void CommandHandler::getSyncDir()
 {
+    if (file_manager == nullptr)
+    {
+        file_manager = new FileManager("sync_dir");
+    }
     string message = "begging for files.";
     Packet packet {
             communication::GET_SYNC_DIR,
