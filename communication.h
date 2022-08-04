@@ -40,6 +40,8 @@ namespace communication {
         char* _payload; // The content itselfs
     };
 
+    void showPacket(const Packet& packet);
+
     class Transmitter {
         std::binary_semaphore* socket_semaphore;
         struct sockaddr_in* client_addr;

@@ -138,31 +138,41 @@ void CommandHandler::handleCommand(const Command& command, const vector<string>&
 
 void CommandHandler::uploadFile(const string& file_path)
 {
-    string content = FileManager::readUnwatchedFile(file_path);
     filesystem::path fpath(file_path);
     string filename = fpath.filename();
+    string content = FileManager::readUnwatchedFile(file_path);
+    string payload = filename + "\n" + content;
 
     // primeiro, envia o nome e outros metadados (se precisar) do arquivo
-    Packet metadata_packet {
-            communication::UPLOAD,
-            1,
-            filename.size(),
-            (unsigned int) filename.size(),
-            (char*) filename.c_str()
-    };
+//    Packet metadata_packet {
+//            communication::UPLOAD,
+//            1,
+//            filename.size(),
+//            (unsigned int) filename.size(),
+//            (char*) filename.c_str()
+//    };
+//
+//    // depois, envia o arquivo
+//    Packet data_packet {
+//            communication::UPLOAD,
+//            2,
+//            content.size(),
+//            (unsigned int) content.size(),
+//            (char*) content.c_str()
+//    };
 
-    // depois, envia o arquivo
     Packet data_packet {
             communication::UPLOAD,
-            2,
-            content.size(),
-            (unsigned int) content.size(),
-            (char*) content.c_str()
+            1,
+            payload.size(),
+            (unsigned int) payload.size(),
+            (char*) payload.c_str()
     };
 
     try {
-        transmitter->sendPackage(metadata_packet);
         transmitter->sendPackage(data_packet);
+//        transmitter->sendPackage(metadata_packet);
+//        transmitter->sendPackage(data_packet);
     } catch (SocketWriteError& e) {
         cerr << e.what() << endl;
     }
@@ -236,16 +246,32 @@ void CommandHandler::listServer()
             (unsigned int) message.size(),
             (char*) message.c_str()
     };
+
     try {
         transmitter->sendPackage(packet);
     } catch (SocketWriteError& e) {
         cerr << e.what() << endl;
     }
-    //TODO: receber lista de arquivos (talvez em csv?)
+
+    try {
+        auto response = transmitter->receivePackage();
+        string files_list_raw{response._payload};
+        auto files_list = split_str(files_list_raw, ',');
+        for (const auto& str : files_list)
+        {
+            cout << str << endl;
+        }
+    } catch (SocketReadError& e) {
+        cerr << e.what() << endl;
+    }
 }
 
 void CommandHandler::listClient()
 {
-    // TODO: listar arquivos associados a pasta sync_dir
-    cerr << "not implemented" << endl;
+    auto files_list_raw = file_manager->listFiles();
+    auto files_list = split_str(files_list_raw, ',');
+    for (const auto& str : files_list)
+    {
+        cout << str << endl;
+    }
 }
