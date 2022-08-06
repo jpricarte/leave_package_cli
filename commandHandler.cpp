@@ -2,6 +2,7 @@
 // Created by jpricarte on 31/07/22.
 //
 
+#include <fstream>
 #include "commandHandler.h"
 
 using namespace std;
@@ -140,39 +141,66 @@ void CommandHandler::uploadFile(const string& file_path)
 {
     filesystem::path fpath(file_path);
     string filename = fpath.filename();
-    string content = FileManager::readUnwatchedFile(file_path);
-    string payload = filename + "\n" + content;
+    auto filesize = file_size(fpath);
+    ifstream file(filename, ios::binary);
+    if (!file)
+    {
+        return;
+    }
 
     // primeiro, envia o nome e outros metadados (se precisar) do arquivo
-//    Packet metadata_packet {
-//            communication::UPLOAD,
-//            1,
-//            filename.size(),
-//            (unsigned int) filename.size(),
-//            (char*) filename.c_str()
-//    };
-//
-//    // depois, envia o arquivo
-//    Packet data_packet {
-//            communication::UPLOAD,
-//            2,
-//            content.size(),
-//            (unsigned int) content.size(),
-//            (char*) content.c_str()
-//    };
-
-    Packet data_packet {
+    Packet metadata_packet {
             communication::UPLOAD,
             1,
-            payload.size(),
-            (unsigned int) payload.size(),
-            (char*) payload.c_str()
+            filesize,
+            (unsigned int) filename.size(),
+            (char*) filename.c_str()
     };
 
     try {
-        transmitter->sendPackage(data_packet);
-//        transmitter->sendPackage(metadata_packet);
-//        transmitter->sendPackage(data_packet);
+        transmitter->sendPackage(metadata_packet);
+    } catch (SocketWriteError& e) {
+        cerr << e.what() << endl;
+    }
+
+    // depois, envia o arquivo em partes de 512 Bytes
+    const unsigned int BUF_SIZE = 256;
+    char buf[BUF_SIZE] = {};
+    unsigned int i = 2;
+    while(!file.eof())
+    {
+        bzero(buf, BUF_SIZE);
+        file.read(buf, BUF_SIZE);
+        Packet data_packet {
+                communication::UPLOAD,
+                i,
+                filesize,
+                (unsigned int) strlen(buf),
+                buf
+        };
+
+        try {
+            transmitter->sendPackage(data_packet);
+        } catch (SocketWriteError& e) {
+            cerr << e.what() << endl;
+            break;
+        }
+
+        try {
+            communication::Packet packet = transmitter->receivePackage();
+            if (packet.command == communication::OK) {
+                i++;
+            } else {
+                break;
+            }
+        } catch (SocketReadError& e) {
+            cerr << e.what() << endl;
+            break;
+        }
+    }
+
+    try {
+        transmitter->sendPackage(communication::SUCCESS);
     } catch (SocketWriteError& e) {
         cerr << e.what() << endl;
     }
@@ -181,20 +209,26 @@ void CommandHandler::uploadFile(const string& file_path)
 
 void CommandHandler::downloadFile(const string& filename)
 {
-    Packet packet {
-        communication::DOWNLOAD,
-        1,
-        filename.size(),
-        (unsigned int) filename.size(),
-        (char*) filename.c_str()
-    };
-    try {
-        transmitter->sendPackage(packet);
-    } catch (SocketWriteError& e) {
-        cerr << e.what() << endl;
-    }
+    const unsigned int BUF_SIZE = 256;
+    std::string file_path = std::filesystem::relative(file_manager->getPath());
+    file_path += "/" + filename;
+    ifstream file(file_path, ifstream::binary);
+    ofstream copy_file(filename, ofstream::binary);
+    if (file)
+    {
+        if (copy_file)
+        {
+            char buf[BUF_SIZE] = {};
+            while(!file.eof())
+            {
+                file.read(buf, BUF_SIZE);
+                copy_file.write(buf, BUF_SIZE);
+            }
 
-    //TODO: receber arquivo (outra thread?)
+            copy_file.close();
+        }
+        file.close();
+    }
 }
 
 void CommandHandler::deleteFile(const string& filename)

@@ -79,4 +79,29 @@ namespace communication {
         return packet;
     }
 
+    Packet Transmitter::receivePackage(char* buf) {
+        Packet packet{};
+        socket_semaphore->acquire();
+        std::cout << "dentro"<< std::endl;
+        auto res = read(socketfd, (void*) &packet, sizeof(Packet));
+        if (res < 0) {
+            socket_semaphore->release();
+            std::cerr << "Error in header" << std::endl;
+            throw SocketReadError();
+        }
+        res = read(socketfd, buf, packet.length);
+        if (res < 0) {
+            socket_semaphore->release();
+            std::cerr << "Error in payload" << std::endl;
+            throw SocketReadError();
+        }
+        socket_semaphore->release();
+
+        packet.seqn = ntohs(packet.seqn);
+        packet.total_size = ntohl(packet.total_size);
+        packet.length = ntohs(packet.length);
+        packet._payload = nullptr;
+        return packet;
+    }
+
 } // communication

@@ -52,11 +52,18 @@ namespace communication {
 
         Packet receivePackage();
 
+        Packet receivePackage(char* buf);
+
         Transmitter(sockaddr_in *clientAddr, int socketfd);
 
         virtual ~Transmitter();
 
     };
+
+    const Packet SUCCESS {OK, 1,
+                          17,
+                          (unsigned int) 17,
+                          (char*) "FINE (UNTIL NOW)"};
 } // communication
 
 #endif //LEAVE_PACKAGE_COMMUNICATION_H

@@ -60,11 +60,11 @@ std::string FileManager::readFile(const std::string &filename) {
     if (file)
     {
         while(file) {
-            file >> str;
+            str.push_back(file.get());
         }
-        file.close();
     }
-    std::cout << str << std::endl;
+    file.close();
+
     readers_mutex->acquire();
     readers_counter--;
     if (readers_counter == 0)
@@ -74,6 +74,29 @@ std::string FileManager::readFile(const std::string &filename) {
     readers_mutex->release();
 
     return str;
+}
+
+void FileManager::moveFile(const std::string &tmp_file, const std::string &filename) {
+    std::string filepath = std::filesystem::relative(path);
+    filepath += "/" + filename;
+
+    readers_mutex->acquire();
+    readers_counter++;
+    if (readers_counter == 1)
+    {
+        reading_writing_semaphore->acquire();
+    }
+    readers_mutex->release();
+
+    std::filesystem::rename(tmp_file, filepath);
+
+    readers_mutex->acquire();
+    readers_counter--;
+    if (readers_counter == 0)
+    {
+        reading_writing_semaphore->release();
+    }
+    readers_mutex->release();
 }
 
 std::string FileManager::listFiles() {
@@ -107,19 +130,7 @@ std::string FileManager::listFiles() {
     return str;
 }
 
-// TODO: arrumar o fim do arquivo
-std::string FileManager::readUnwatchedFile(const std::string& filename) {
-    std::ifstream file(filename);
-    std::string str{};
-    if (file)
-    {
-        while(file) {
-            std::string buf{};
-            getline(file, buf);
-            str += buf + "\n";
-        }
-        file.close();
-    }
-
-    return str;
+const std::filesystem::path &FileManager::getPath() const {
+    return path;
 }
+
