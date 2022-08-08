@@ -27,6 +27,8 @@ namespace communication {
         GET_SYNC_DIR,
         LIST_SERVER,
         LIST_CLIENT,
+        SYNC_DOWN,
+        SYNC_DELETE,
         OK,
         EXIT,
         NOP

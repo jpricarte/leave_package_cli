@@ -80,8 +80,12 @@ int main(int argc, char* argv[]) {
     auto* command_handler = new CommandHandler(transmitter);
 
     auto sender = thread(&CommandHandler::handle, command_handler);
+    auto watcher = thread(&CommandHandler::watchFiles, command_handler);
+    auto listener = thread(&CommandHandler::listenCommands, command_handler);
 
     sender.join();
+    watcher.join();
+    listener.join();
 
     delete command_handler;
     close(sockfd);

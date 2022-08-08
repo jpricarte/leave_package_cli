@@ -76,6 +76,7 @@ void CommandHandler::handle()
         }
         last_command = parseCommand(args[0]);
 
+        in_use_semaphore->acquire();
         try {
             handleCommand(last_command, args);
         } catch(InvalidNumOfArgs& e) {
@@ -86,8 +87,8 @@ void CommandHandler::handle()
                 cout << "- " << arg << endl;
             }
         }
+        in_use_semaphore->release();
     }
-
     string end_connection = "goodbye my friend!";
     Packet finishConnectionPacket{
             EXIT,
@@ -357,5 +358,99 @@ void CommandHandler::saveDataFlow(std::ofstream &tmp_file) {
                 break;
             }
         }
+    }
+}
+
+void CommandHandler::watchFiles() {
+    const uint16_t MAX_EVENTS = 512;
+    const uint16_t LEN_NAME = 32;  /* Assuming that the length of the filename won't exceed 16 bytes*/
+    const size_t EVENT_SIZE  = (sizeof (struct inotify_event)); /*size of one event*/
+    const size_t BUF_LEN = ( MAX_EVENTS * ( EVENT_SIZE + LEN_NAME ));
+
+    watchfd = inotify_init();
+    if (fcntl(watchfd, F_SETFL, O_NONBLOCK) < 0)  // error checking for fcntl
+        cerr << "cannot watch for some error" << endl;
+
+    int watch_descriptor = inotify_add_watch(watchfd, "sync_dir",
+                                             IN_CREATE | IN_MODIFY | IN_DELETE);
+
+
+    if (watch_descriptor < 0)
+    {
+        cerr << "could not watch sync_dir, will not sync" << endl
+             << "Try use get_sync_dir and restart your client" << endl;
+        return;
+    }
+
+    while (true)
+    {
+        int i=0,length;
+        char buffer[BUF_LEN];
+
+        /* Step 3. Read buffer*/
+        length = read(watchfd,buffer,BUF_LEN);
+
+        while (i<length)
+        {
+            auto *event = (struct inotify_event *) &buffer[i];
+            if(event->len){
+                if ( event->mask & IN_CREATE ) {
+                    if ( event->mask & IN_ISDIR ) {
+                        printf( "The directory %s was created. Will not sync\n", event->name );
+                    }
+                    else {
+                        string file_path = file_manager->getPath();
+                        file_path += "/";
+                        file_path += (char*) event->name;
+
+                        in_use_semaphore->acquire();
+                        uploadFile(file_path);
+                        in_use_semaphore->release();
+                    }
+                }
+                else if ( event->mask & IN_DELETE ) {
+                    if ( event->mask & IN_ISDIR ) {
+                        printf( "The directory %s was deleted. Will not sync\n", event->name );
+                    }
+                    else {
+                        in_use_semaphore->acquire();
+                        deleteFile(event->name);
+                        in_use_semaphore->release();
+                    }
+                }
+                else if ( event->mask & IN_MODIFY ) {
+                    if ( event->mask & IN_ISDIR ) {
+                        printf( "The directory %s was modified. Will not sync\n", event->name );
+                    }
+                    else {
+                        string file_path = file_manager->getPath();
+                        file_path += "/";
+                        file_path += (char*) event->name;
+
+                        in_use_semaphore->acquire();
+                        uploadFile(file_path);
+                        in_use_semaphore->release();
+                    }
+                }
+            }
+            i += EVENT_SIZE + event->len;
+        }
+
+    }
+}
+
+void CommandHandler::listenCommands() {
+    Packet command_packet = transmitter->receivePackage();
+    if (command_packet.command == communication::SYNC_DOWN)
+    {
+        in_use_semaphore->acquire();
+        getSyncFile(command_packet._payload);
+        in_use_semaphore->release();
+    }
+    if (command_packet.command == communication::SYNC_DELETE)
+    {
+        in_use_semaphore->acquire();
+        file_manager->deleteFile(command_packet._payload);
+        in_use_semaphore->release();
     }
 }
