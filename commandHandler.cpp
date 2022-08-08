@@ -93,7 +93,7 @@ void CommandHandler::handle()
             EXIT,
             1,
             end_connection.size(),
-            (unsigned int) end_connection.size(),
+            (unsigned int) strlen(end_connection.c_str()),
             (char*) end_connection.c_str()
     };
     transmitter->sendPackage(finishConnectionPacket);
@@ -139,9 +139,15 @@ void CommandHandler::handleCommand(const Command& command, const vector<string>&
 
 void CommandHandler::uploadFile(const string& file_path)
 {
-    filesystem::path fpath(file_path);
-    string filename = fpath.filename();
-    auto filesize = file_size(fpath);
+    string filename{};
+    size_t filesize;
+    try {
+        filesystem::path fpath(file_path);
+        filename = fpath.filename();
+        filesize = file_size(fpath);
+    } catch (std::filesystem::__cxx11::filesystem_error& e) {
+        std::cerr << "File not found" << std::endl;
+    }
     ifstream file(filename, ios::binary);
     if (!file)
     {
@@ -153,7 +159,7 @@ void CommandHandler::uploadFile(const string& file_path)
             communication::UPLOAD,
             1,
             filesize,
-            (unsigned int) filename.size(),
+            (unsigned int) strlen(filename.c_str()),
             (char*) filename.c_str()
     };
 
@@ -163,14 +169,14 @@ void CommandHandler::uploadFile(const string& file_path)
         cerr << e.what() << endl;
     }
 
-    // depois, envia o arquivo em partes de 512 Bytes
-    const unsigned int BUF_SIZE = 256;
+    // depois, envia o arquivo em partes de 255 Bytes
+    const unsigned int BUF_SIZE = 255;
     char buf[BUF_SIZE] = {};
     unsigned int i = 2;
     while(!file.eof())
     {
         bzero(buf, BUF_SIZE);
-        file.read(buf, BUF_SIZE);
+        file.read((char*) buf, BUF_SIZE);
         Packet data_packet {
                 communication::UPLOAD,
                 i,
@@ -209,25 +215,12 @@ void CommandHandler::uploadFile(const string& file_path)
 
 void CommandHandler::downloadFile(const string& filename)
 {
-    const unsigned int BUF_SIZE = 256;
-    std::string file_path = std::filesystem::relative(file_manager->getPath());
-    file_path += "/" + filename;
-    ifstream file(file_path, ifstream::binary);
-    ofstream copy_file(filename, ofstream::binary);
-    if (file)
-    {
-        if (copy_file)
-        {
-            char buf[BUF_SIZE] = {};
-            while(!file.eof())
-            {
-                file.read(buf, BUF_SIZE);
-                copy_file.write(buf, BUF_SIZE);
-            }
-
-            copy_file.close();
-        }
-        file.close();
+    std::string sync_file_path = file_manager->getPath();
+    sync_file_path += "/" + filename;
+    try {
+        filesystem::path p(sync_file_path);
+    } catch (filesystem::filesystem_error& e) {
+        cerr << "File not found" << endl;
     }
 }
 
@@ -237,7 +230,7 @@ void CommandHandler::deleteFile(const string& filename)
             communication::DELETE,
             1,
             filename.size(),
-            (unsigned int) filename.size(),
+            (unsigned int) strlen(filename.c_str()),
             (char*) filename.c_str()
     };
     try {
@@ -254,20 +247,30 @@ void CommandHandler::getSyncDir()
     {
         file_manager = new FileManager("sync_dir");
     }
-    string message = "begging for files.";
-    Packet packet {
-            communication::GET_SYNC_DIR,
-            1,
-            message.size(),
-            (unsigned int) message.size(),
-            (char*) message.c_str()
+
+    Packet packet{
+        communication::GET_SYNC_DIR,
+        1,
+        2,
+        2,
+        (char*) "."
     };
     try {
         transmitter->sendPackage(packet);
     } catch (SocketWriteError& e) {
         cerr << e.what() << endl;
     }
-    //TODO: receber os arquivos em ordem
+
+    do {
+        try {
+            packet = transmitter->receivePackage();
+//            cout << packet._payload << endl;
+            if (packet.command == communication::DOWNLOAD)
+                getSyncFile(packet._payload);
+        } catch (SocketReadError& e) {
+            cout << e.what() << endl;
+        }
+    } while(packet.command != communication::OK);
 }
 
 void CommandHandler::listServer()
@@ -277,7 +280,7 @@ void CommandHandler::listServer()
             communication::LIST_SERVER,
             1,
             message.size(),
-            (unsigned int) message.size(),
+            (unsigned int) strlen(message.c_str()),
             (char*) message.c_str()
     };
 
@@ -307,5 +310,52 @@ void CommandHandler::listClient()
     for (const auto& str : files_list)
     {
         cout << str << endl;
+    }
+}
+
+void CommandHandler::getSyncFile(const string &filename) {
+    std::string tmp_name = '.' + filename + ".tmp";
+    std::ofstream tmp_file{tmp_name, std::ofstream::binary};
+
+    if (tmp_file)
+    {
+        saveDataFlow(tmp_file);
+        tmp_file.close();
+        file_manager->moveFile(tmp_name, filename);
+    }
+}
+
+void CommandHandler::saveDataFlow(std::ofstream &tmp_file) {
+    auto last_command = communication::DOWNLOAD;
+    while(last_command != communication::OK)
+    {
+        try {
+            auto packet = transmitter->receivePackage();
+            last_command = packet.command;
+            if (last_command == communication::DOWNLOAD)
+            {
+                tmp_file.write((char*)packet._payload, packet.length);
+            }
+        } catch (SocketReadError& e) {
+            std::cerr << e.what() << std::endl;
+            break;
+        } catch (...) {
+            try {
+                transmitter->sendPackage(communication::ERROR);
+            } catch (SocketWriteError& e2) {
+                std::cerr << e2.what() << std::endl;
+                break;
+            }
+        }
+
+        if (last_command != communication::OK)
+        {
+            try {
+                transmitter->sendPackage(communication::SUCCESS);
+            } catch (SocketWriteError& e) {
+                std::cerr << e.what() << std::endl;
+                break;
+            }
+        }
     }
 }

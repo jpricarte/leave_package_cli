@@ -26,7 +26,8 @@ class CommandHandler {
     void getSyncDir();
     void listServer();
     void listClient();
-
+    void getSyncFile(const std::string& filename);
+    void saveDataFlow(std::ofstream &tmp_file);
 public:
     explicit CommandHandler(communication::Transmitter *transmitter);
 

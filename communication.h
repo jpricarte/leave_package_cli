@@ -52,8 +52,6 @@ namespace communication {
 
         Packet receivePackage();
 
-        Packet receivePackage(char* buf);
-
         Transmitter(sockaddr_in *clientAddr, int socketfd);
 
         virtual ~Transmitter();
@@ -64,6 +62,12 @@ namespace communication {
                           17,
                           (unsigned int) 17,
                           (char*) "FINE (UNTIL NOW)"};
+
+    const Packet ERROR {NOP, 1,
+                        6,
+                        (unsigned int) 6,
+                        (char*) "OH OH"};
+
 } // communication
 
 #endif //LEAVE_PACKAGE_COMMUNICATION_H
