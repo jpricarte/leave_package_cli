@@ -1,0 +1,61 @@
+Lógica de upload de arquivos:
+Semanticamente, um arquivo só vai ser considerado completamente enviado quando
+ele receber o mesmo de volta do servidor, de forma que ele receba a confirmação
+de que tudo deu certo.
+
+1- Cliente manda arquivo via upload:
+    1. Faz o read do arquivo, salvando-o em um buffer.
+    2. O client manda 2 pacotes: um contendo o nome do arquivo (e possíveis
+       metadados associados), e outro contendo o conteúdo propriamente dito.
+    3. O cliente entra em wait.
+       
+2- O servidor recebe o arquivo:
+    4. O servidor recebe o primeiro pacote contendo o nome do arquivo e cria
+       um novo arquivo com esse nome.
+    5. O servidor recebe o conteúdo desse arquivo e salva no arquivo.
+    6. O servidor fecha o arquivo, terminando a parte de upload.
+    
+3- O FileManager do usuário no servidor é ativado por ter um arquivo criado:
+    7. O FileManager do usuário no servidor vai emitir um sig_all avisando 
+       que o arquivo foi criado.
+    8. Nesse momento, iniciará um sendFile() em todos os dispositivos
+       conectados para enviar o novo arquivo para o usuário.
+    9. O servidor manda 2 pacotes: um contendo o nome do arquivo (e possíveis
+       metadados associados), e outro contendo o conteúdo propriamente dito.
+       
+4- Cliente recebe arquivos pelo income:
+   10. O cliente recebe o primeiro pacote contendo o nome do arquivo e cria
+       um novo arquivo com esse nome.
+   11. O cliente recebe o conteúdo desse arquivo e salva no arquivo.
+   12. O servidor fecha o arquivo, enviando um signal e terminando.
+   
+-------------------------------------------------------------------------------
+Lógica de Download de arquivos:
+O Download de arquivos é completamente offline
+
+1- Cliente recebe um pedido de download:
+    1. O cliente copia o arquivo para a pasta de execução.
+    2. Finaliza-se o processo de download.
+
+-------------------------------------------------------------------------------
+Lógica de Delete de arquivos:
+O Delete funciona de forma similar ao upload, porém sem enviar os dados do
+arquivo que será deletado em cada comunicação
+
+1- Cliente manda um pedido de delete:
+    1. O client manda um pacote contendo o nome do arquivo.
+    2. O cliente entra em wait.
+       
+2- O servidor recebe o arquivo:
+    3. O servidor recebe o pacote contendo o nome do arquivo e deleta-o.
+    
+3- O FileManager do usuário no servidor é ativado por ter um arquivo criado:
+    4. O FileManager do usuário no servidor vai emitir um sig_all avisando 
+       que o arquivo foi deletado.
+    5. Nesse momento, iniciará um handleDelete() em todos os dispositivos
+       conectados para deletar o arquivo nos clientes.
+    6. O servidor manda um pacote contendo o nome do arquivo e o comando DELETE. 
+       
+4- Cliente recebe arquivos pelo income:
+    7. O cliente recebe o comando de DELETE.
+    8. O cliente recebe deletao arquivo, enviando um signal e terminando.

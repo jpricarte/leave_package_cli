@@ -6,6 +6,7 @@
 #define LEAVE_PACKAGE_CLI_COMMANDHANDLER_H
 
 #include <iostream>
+#include <algorithm>
 #include <unistd.h>
 #include <cstring>
 #include <vector>
@@ -29,6 +30,7 @@ class CommandHandler {
     void downloadFile(const std::string& filename);
     void deleteFile(const std::string& filename);
     void getSyncDir();
+    void deleteOldFiles();
     void listServer();
     void listClient();
     void getSyncFile(const std::string& filename);

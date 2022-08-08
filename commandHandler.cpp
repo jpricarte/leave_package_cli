@@ -44,6 +44,7 @@ Command parseCommand(const std::string& s) {
 }
 
 CommandHandler::CommandHandler(Transmitter *transmitter) : transmitter(transmitter) {
+    in_use_semaphore = new counting_semaphore<1>(1);
     if (filesystem::exists("sync_dir")) {
         file_manager = new FileManager("sync_dir");
     } else {
@@ -274,6 +275,53 @@ void CommandHandler::getSyncDir()
     } while(packet.command != communication::OK);
 }
 
+void CommandHandler::deleteOldFiles() {
+    // Get server files
+    string message = "show me your files.";
+    Packet packet {
+            communication::LIST_SERVER,
+            1,
+            message.size(),
+            (unsigned int) strlen(message.c_str()),
+            (char*) message.c_str()
+    };
+
+    try {
+        transmitter->sendPackage(packet);
+    } catch (SocketWriteError& e) {
+        cerr << e.what() << endl;
+    }
+
+    try {
+        auto response = transmitter->receivePackage();
+        string files_list_raw{response._payload};
+        auto server_files = split_str(files_list_raw, ',');
+
+        auto user_files_raw = file_manager->listFiles();
+        auto user_files = split_str(files_list_raw, ',');
+
+        for (const auto& file : user_files)
+        {
+            bool in_server = false;
+            for (const auto& sync_file : server_files)
+            {
+                if (file == sync_file)
+                {
+                    in_server = true;
+                    break;
+                }
+            }
+            if (!in_server)
+            {
+                deleteFile(file);
+            }
+        }
+    } catch (SocketReadError& e) {
+        cerr << e.what() << endl;
+    }
+}
+
+
 void CommandHandler::listServer()
 {
     string message = "show me your files.";
@@ -374,7 +422,6 @@ void CommandHandler::watchFiles() {
     int watch_descriptor = inotify_add_watch(watchfd, "sync_dir",
                                              IN_CREATE | IN_MODIFY | IN_DELETE);
 
-
     if (watch_descriptor < 0)
     {
         cerr << "could not watch sync_dir, will not sync" << endl
@@ -440,17 +487,13 @@ void CommandHandler::watchFiles() {
 }
 
 void CommandHandler::listenCommands() {
-    Packet command_packet = transmitter->receivePackage();
-    if (command_packet.command == communication::SYNC_DOWN)
-    {
-        in_use_semaphore->acquire();
-        getSyncFile(command_packet._payload);
-        in_use_semaphore->release();
-    }
-    if (command_packet.command == communication::SYNC_DELETE)
-    {
-        in_use_semaphore->acquire();
-        file_manager->deleteFile(command_packet._payload);
-        in_use_semaphore->release();
+    while(true) {
+        sleep(30);
+        if (file_manager != nullptr ) {
+            in_use_semaphore->acquire();
+            getSyncDir();
+            deleteOldFiles();
+            in_use_semaphore->release();
+        }
     }
 }
