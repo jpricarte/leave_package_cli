@@ -26,7 +26,7 @@ class CommandHandler {
     int watchfd;
 
     void handleCommand(const communication::Command& command, const std::vector<std::string>& args);
-    void uploadFile(const std::string& file_path);
+    void uploadFile(const std::string& filename);
     void downloadFile(const std::string& filename);
     void deleteFile(const std::string& filename);
     void getSyncDir();

@@ -27,8 +27,6 @@ namespace communication {
         GET_SYNC_DIR,
         LIST_SERVER,
         LIST_CLIENT,
-        SYNC_DOWN,
-        SYNC_DELETE,
         OK,
         EXIT,
         NOP
@@ -50,9 +48,9 @@ namespace communication {
         int socketfd;
 
     public:
-        void sendPackage(const Packet& packet);
+        void sendPacket(const Packet& packet);
 
-        Packet receivePackage();
+        Packet receivePacket();
 
         Transmitter(sockaddr_in *clientAddr, int socketfd);
 

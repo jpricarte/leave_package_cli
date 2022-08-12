@@ -3,6 +3,7 @@
 //
 
 
+#include <vector>
 #include "communication.h"
 
 namespace communication {
@@ -27,7 +28,7 @@ namespace communication {
         close(this->socketfd);
     }
 
-    void Transmitter::sendPackage(const Packet &packet) {
+    void Transmitter::sendPacket(const Packet &packet) {
         auto* sendable_packet = new Packet{
                 packet.command,
                 htons(packet.seqn),
@@ -53,7 +54,7 @@ namespace communication {
         socket_semaphore->release();
     }
 
-    Packet Transmitter::receivePackage() {
+    Packet Transmitter::receivePacket() {
         Packet packet{};
         socket_semaphore->acquire();
         auto res = read(socketfd, &packet, sizeof(Packet));
@@ -77,5 +78,4 @@ namespace communication {
 
         return packet;
     }
-
 } // communication

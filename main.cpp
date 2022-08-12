@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <vector>
 #include <thread>
+#include <csignal>
 
 #include "communication.h"
 #include "commandHandler.h"
@@ -14,8 +15,30 @@
 using namespace std;
 using namespace communication;
 
+Transmitter* transmitter = nullptr;
+
+int handleSignal()
+{
+    if (transmitter != nullptr)
+    {
+        string end_connection = "goodbye my friend!";
+        Packet finishConnectionPacket{
+                EXIT,
+                1,
+                end_connection.size(),
+                (unsigned int) strlen(end_connection.c_str()),
+                (char*) end_connection.c_str()
+        };
+        transmitter->sendPacket(finishConnectionPacket);
+        delete transmitter;
+    }
+    return 0;
+}
+
 
 int main(int argc, char* argv[]) {
+    signal(SIGINT, reinterpret_cast<__sighandler_t>(handleSignal));
+    signal(SIGTERM, reinterpret_cast<__sighandler_t>(handleSignal));
 
     if (argc < 4) {
         fprintf(stderr,"usage %s <username> <hostname> <port>\n", argv[0]);
@@ -44,7 +67,7 @@ int main(int argc, char* argv[]) {
         printf("ERROR connecting\n");
         return -1;
     }
-    auto* transmitter = new communication::Transmitter(&serv_addr, sockfd);
+    transmitter = new communication::Transmitter(&serv_addr, sockfd);
 
     std::string username = argv[1];
     communication::Packet packet{
@@ -56,14 +79,14 @@ int main(int argc, char* argv[]) {
     };
 
     try {
-        transmitter->sendPackage(packet);
+        transmitter->sendPacket(packet);
     } catch (SocketWriteError& e) {
         std::cerr << e.what() << std::endl;
     }
 
     communication::Command response = communication::EXIT;
     try {
-        auto result = transmitter->receivePackage();
+        auto result = transmitter->receivePacket();
         cout << result._payload << endl;
         response = result.command;
     } catch (SocketReadError& e) {
@@ -72,6 +95,7 @@ int main(int argc, char* argv[]) {
 
     if (response != communication::OK)
     {
+        cout << response << endl;
         cerr << "something went wrong in server" << endl;
         close(sockfd);
         return -2;
@@ -80,12 +104,12 @@ int main(int argc, char* argv[]) {
     auto* command_handler = new CommandHandler(transmitter);
 
     auto sender = thread(&CommandHandler::handle, command_handler);
-    auto watcher = thread(&CommandHandler::watchFiles, command_handler);
-    auto listener = thread(&CommandHandler::listenCommands, command_handler);
+//    auto watcher = thread(&CommandHandler::watchFiles, command_handler);
+//    auto listener = thread(&CommandHandler::listenCommands, command_handler);
 
     sender.join();
-    watcher.join();
-    listener.join();
+//    watcher.join();
+//    listener.join();
 
     delete command_handler;
     close(sockfd);

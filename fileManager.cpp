@@ -21,7 +21,7 @@ void FileManager::createFile(const std::string &filename, const std::string &con
     filepath += "/" + filename;
 
     reading_writing_semaphore->acquire();
-    std::ofstream file(filepath);
+    std::ofstream file(filepath, std::ofstream::binary);
     if (file) {
         file << content << std::endl;
         file.close();
@@ -54,7 +54,7 @@ std::string FileManager::readFile(const std::string &filename) {
     }
     readers_mutex->release();
 
-    std::ifstream file(filepath);
+    std::ifstream file(filepath, std::ifstream::binary);
     std::string str{};
 
     if (file)
@@ -130,6 +130,32 @@ std::string FileManager::listFiles() {
     return str;
 }
 
+std::vector<FileData> FileManager::listFilesAndLastModified() {
+    readers_mutex->acquire();
+    readers_counter++;
+    if (readers_counter == 1)
+    {
+        reading_writing_semaphore->acquire();
+    }
+    readers_mutex->release();
+
+    std::vector<FileData> files{};
+    for (const auto & file : std::filesystem::directory_iterator(path))
+    {
+        files.push_back(FileData {file.path().filename(), file.last_write_time()});
+    }
+
+    readers_mutex->acquire();
+    readers_counter--;
+    if (readers_counter == 0)
+    {
+        reading_writing_semaphore->release();
+    }
+    readers_mutex->release();
+
+    return files;
+}
+
 const std::filesystem::path &FileManager::getPath() const {
     return path;
 }
@@ -154,5 +180,42 @@ void FileManager::copyFile(const std::string &file_orig, const std::string &file
     readers_mutex->release();
 }
 
+void FileManager::getFileInfo(const std::string &filename, FileData *file_data_ptr) {
+    readers_mutex->acquire();
+    readers_counter++;
+    if (readers_counter == 1)
+    {
+        reading_writing_semaphore->acquire();
+    }
+    readers_mutex->release();
 
+    std::filesystem::path local_file = path;
+    local_file += "/" + filename;
+
+    std::chrono::time_point<std::filesystem::__file_clock> last_mod;
+
+    bool exists = false;
+    try {
+        last_mod = last_write_time(local_file);
+        exists = true;
+        file_data_ptr->filename = filename;
+        file_data_ptr->last_write = last_mod;
+    } catch (...)
+    {
+        std::cerr << "cannot find file" << std::endl;
+        file_data_ptr = nullptr;
+    }
+    if (!exists)
+    {
+        file_data_ptr = nullptr;
+    }
+
+    readers_mutex->acquire();
+    readers_counter--;
+    if (readers_counter == 0)
+    {
+        reading_writing_semaphore->release();
+    }
+    readers_mutex->release();
+}
 

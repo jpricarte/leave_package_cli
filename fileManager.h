@@ -8,8 +8,13 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 #include <semaphore>
-#include <condition_variable>
+
+struct FileData {
+    std::string filename;
+    std::chrono::time_point<std::filesystem::__file_clock> last_write;
+};
 
 /* DECISÃO DE PROJETO
  * Foi decidido usar o FileManager como um problema de leitores/escritores
@@ -43,6 +48,10 @@ public:
     std::string readFile(const std::string &filename);
 
     std::string listFiles();
+
+    void getFileInfo(const std::string &filename, FileData* file_data_ptr);
+
+    std::vector<FileData> listFilesAndLastModified();
 
     const std::filesystem::path &getPath() const;
 
