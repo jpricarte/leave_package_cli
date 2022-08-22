@@ -174,20 +174,17 @@ void CommandHandler::uploadFile(const string &filename)
         cerr << e.what() << endl;
     }
 
-    auto remeaning_size = filesize;
-    // depois, envia o arquivo em partes de 1023 Bytes
-    const unsigned int BUF_SIZE = 1023;
+    size_t remeaning_size = filesize;
+    // depois, envia o arquivo em partes de 1024 Bytes
+    const unsigned int BUF_SIZE = 1024;
     char buf[BUF_SIZE] = {};
     unsigned int i = 2;
-    size_t readed = 0;
     while(remeaning_size > 0)
     {
         bzero(buf, BUF_SIZE);
         auto read_size = min((unsigned long)BUF_SIZE, remeaning_size);
         remeaning_size -= read_size;
-        readed += read_size;
         file.read(buf, (unsigned int) read_size);
-        cout << readed << " of " << filesize << endl;
         Packet data_packet {
                 communication::UPLOAD,
                 i,

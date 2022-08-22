@@ -59,41 +59,36 @@ namespace communication {
     Packet Transmitter::receivePacket() {
         Packet packet{};
         socket_semaphore->acquire();
-        bool finish = false;
-        do {
-            size_t pckt_size = 0;
-            while (pckt_size < sizeof(Packet)) {
-                auto res = read(socketfd, &packet, sizeof(Packet));
-                if (res < 0) {
-                    socket_semaphore->release();
-                    std::cerr << "Error in header" << std::endl;
-                    throw SocketReadError();
-                }
-                pckt_size += res;
+        auto pckt_size = 0;
+        while (pckt_size < sizeof(Packet))
+        {
+            auto res = read(socketfd, &packet, sizeof(Packet));
+            if (res < 0) {
+                socket_semaphore->release();
+                std::cerr << "Error in header" << std::endl;
+                throw SocketReadError();
             }
-
-            packet.seqn = ntohs(packet.seqn);
-            packet.total_size = ntohl(packet.total_size);
-            packet.length = ntohs(packet.length);
-            packet._payload = new char[packet.length + 1];
-            bzero(packet._payload, packet.length + 1);
-
-            pckt_size = 0;
-            while (pckt_size < packet.length) {
-                auto res = read(socketfd, packet._payload, packet.length);
-                if (res < 0) {
-                    socket_semaphore->release();
-                    std::cerr << "Error in payload" << std::endl;
-                    throw SocketReadError();
-                }
-                pckt_size += res;
+            pckt_size += res;
+        }
+        
+        packet.seqn = ntohs(packet.seqn);
+        packet.total_size = ntohl(packet.total_size);
+        packet.length = ntohs(packet.length);
+        packet._payload = new char[packet.length+1];
+        bzero(packet._payload, packet.length+1);
+        
+        pckt_size = 0;
+        while (pckt_size < packet.length)
+        {
+            auto res = read(socketfd, (void*) &packet._payload[pckt_size], packet.length - pckt_size);
+            if (res < 0) {
+                socket_semaphore->release();
+                std::cerr << "Error in payload" << std::endl;
+                throw SocketReadError();
             }
-            if (packet.command == SYNC_UPLOAD || packet.command == SYNC_DELETE) {
-                sync_requests.push_back(packet);
-                sync_request_semaphore->release();
-                std::cout << "got sync command" << std::endl;
-            } else finish = true;
-        } while (!finish);
+            pckt_size += res;
+        }
+        
         socket_semaphore->release();
 
         return packet;
