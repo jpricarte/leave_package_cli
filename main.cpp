@@ -7,6 +7,8 @@
 #include <vector>
 #include <thread>
 #include <csignal>
+#include <fstream>
+#include <future>
 
 #include "communication.h"
 #include "commandHandler.h"
@@ -16,8 +18,9 @@ using namespace std;
 using namespace communication;
 
 Transmitter* transmitter = nullptr;
+CommandHandler* command_handler = nullptr;
 
-int handleSignal()
+int sendGoodbye()
 {
     if (transmitter != nullptr)
     {
@@ -30,11 +33,18 @@ int handleSignal()
                 (char*) end_connection.c_str()
         };
         transmitter->sendPacket(finishConnectionPacket);
-        delete transmitter;
     }
+    command_handler->setKeepRunning(false);
+
     return 0;
 }
 
+int handleSignal()
+{
+    cout << "use exit" << endl;
+    sendGoodbye();
+    return 0;
+}
 
 int main(int argc, char* argv[]) {
     signal(SIGINT, reinterpret_cast<__sighandler_t>(handleSignal));
@@ -71,11 +81,11 @@ int main(int argc, char* argv[]) {
 
     std::string username = argv[1];
     communication::Packet packet{
-        communication::LOGIN,
-        0,
-        username.size(),
-        (unsigned int) username.size(),
-        const_cast<char *>(username.c_str())
+            communication::LOGIN,
+            0,
+            username.size(),
+            (unsigned int) username.size(),
+            const_cast<char *>(username.c_str())
     };
 
     try {
@@ -101,17 +111,25 @@ int main(int argc, char* argv[]) {
         return -2;
     }
 
-    auto* command_handler = new CommandHandler(transmitter);
+    command_handler = new CommandHandler(transmitter);
 
+    std::promise<void> watcher_exit;
+    std::future<void> watcher_sig = watcher_exit.get_future();
+    std::promise<void> listener_exit;
+    std::future<void> listener_sig = listener_exit.get_future();
     auto sender = thread(&CommandHandler::handle, command_handler);
-//    auto watcher = thread(&CommandHandler::watchFiles, command_handler);
-//    auto listener = thread(&CommandHandler::listenCommands, command_handler);
+    auto watcher = thread(&CommandHandler::watchFiles, command_handler, move(watcher_sig));
+    auto listener = thread(&CommandHandler::simpleSync, command_handler, move(listener_sig));
 
     sender.join();
-//    watcher.join();
-//    listener.join();
+    sendGoodbye();
+
+    watcher_exit.set_value();
+    listener_exit.set_value();
+
+    watcher.detach();
+    listener.join();
 
     delete command_handler;
-    close(sockfd);
     return 0;
 }

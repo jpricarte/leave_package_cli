@@ -45,11 +45,14 @@ Command parseCommand(const std::string& s) {
 
 CommandHandler::CommandHandler(Transmitter *transmitter) : transmitter(transmitter) {
     in_use_semaphore = new counting_semaphore<1>(1);
+    keep_running = true;
     if (filesystem::exists("sync_dir")) {
         file_manager = new FileManager("sync_dir");
     } else {
         file_manager = nullptr;
     }
+
+    should_start_cv = new condition_variable();
 }
 
 
@@ -59,8 +62,16 @@ CommandHandler::~CommandHandler() {
 
 void CommandHandler::handle()
 {
+    if (file_manager != nullptr)
+    {
+        getSyncDir();
+        deleteOldFiles();
+    }
+
+    should_start_cv->notify_all();
+
     communication::Command last_command = communication::NOP;
-    while(last_command != communication::EXIT)
+    while(last_command != communication::EXIT && keep_running)
     {
         string input{};
         cout << ">> ";
@@ -90,16 +101,9 @@ void CommandHandler::handle()
         }
         in_use_semaphore->release();
     }
-    string end_connection = "goodbye my friend!";
-    Packet finishConnectionPacket{
-            EXIT,
-            1,
-            end_connection.size(),
-            (unsigned int) strlen(end_connection.c_str()),
-            (char*) end_connection.c_str()
-    };
-    transmitter->sendPacket(finishConnectionPacket);
+    cout << "handleCommand out" << endl;
 }
+
 
 void CommandHandler::handleCommand(const Command& command, const vector<string>& args) {
 
@@ -142,19 +146,11 @@ void CommandHandler::handleCommand(const Command& command, const vector<string>&
 
 void CommandHandler::uploadFile(const string &filename)
 {
-
     size_t filesize;
     try {
         filesize = file_size(filesystem::path(filename));
     } catch (std::filesystem::__cxx11::filesystem_error& e) {
         std::cerr << "File not found" << std::endl;
-    }
-    std::chrono::time_point<std::filesystem::__file_clock> lmod;
-    try {
-        lmod = std::filesystem::last_write_time(filename);
-    } catch (std::filesystem::filesystem_error& e) {
-        std::cerr << e.what() << std::endl;
-        return;
     }
 
     ifstream file(filename, ios::binary);
@@ -163,14 +159,14 @@ void CommandHandler::uploadFile(const string &filename)
         return;
     }
 
-    cout << filename << endl;
+    string sendable_filename = filesystem::path(filename).filename();
     // primeiro, envia o nome e outros metadados (se precisar) do arquivo
     Packet metadata_packet {
             communication::UPLOAD,
             1,
             filesize,
-            (unsigned int) strlen(filename.c_str()),
-            (char*) filename.c_str()
+            (unsigned int) strlen(sendable_filename.c_str()),
+            (char*) sendable_filename.c_str()
     };
     try {
         transmitter->sendPacket(metadata_packet);
@@ -178,32 +174,25 @@ void CommandHandler::uploadFile(const string &filename)
         cerr << e.what() << endl;
     }
 
-    communication::Packet metadata_packet2 {
-            communication::DOWNLOAD,
-            2,
-            filesize,
-            sizeof(std::chrono::time_point<std::filesystem::__file_clock>),
-            (char*) &lmod
-    };
-    try {
-        transmitter->sendPacket(metadata_packet2);
-    } catch (SocketWriteError& e) {
-        std::cerr << e.what() << std::endl;
-    }
-
+    auto remeaning_size = filesize;
     // depois, envia o arquivo em partes de 1023 Bytes
     const unsigned int BUF_SIZE = 1023;
     char buf[BUF_SIZE] = {};
     unsigned int i = 2;
-    while(!file.eof())
+    size_t readed = 0;
+    while(remeaning_size > 0)
     {
         bzero(buf, BUF_SIZE);
-        file.read(buf, BUF_SIZE);
+        auto read_size = min((unsigned long)BUF_SIZE, remeaning_size);
+        remeaning_size -= read_size;
+        readed += read_size;
+        file.read(buf, (unsigned int) read_size);
+        cout << readed << " of " << filesize << endl;
         Packet data_packet {
                 communication::UPLOAD,
                 i,
                 filesize,
-                (unsigned int) BUF_SIZE,
+                (unsigned int) read_size,
                 buf
         };
 
@@ -257,6 +246,7 @@ void CommandHandler::getSyncDir()
 {
     if (file_manager == nullptr)
     {
+        cout << "The File Watcher disabled, you should restart your client!" << endl;
         file_manager = new FileManager("sync_dir");
     }
 
@@ -280,10 +270,7 @@ void CommandHandler::getSyncDir()
 
             if (packet.command == communication::DOWNLOAD)
             {
-                packet = transmitter->receivePacket();
-                auto* last_write = (std::chrono::time_point<std::filesystem::__file_clock>*) packet._payload;
-
-                getSyncFile(filename);
+                getSyncFile(filename, packet.total_size);
             }
         } catch (SocketReadError& e) {
             cout << e.what() << endl;
@@ -310,28 +297,41 @@ void CommandHandler::deleteOldFiles() {
 
     try {
         auto response = transmitter->receivePacket();
-        string files_list_raw{response._payload};
-        auto server_files = split_str(files_list_raw, ',');
+        string server_files_raw{response._payload};
+        auto server_files = split_str(server_files_raw, ',');
 
         auto user_files_raw = file_manager->listFiles();
-        auto user_files = split_str(files_list_raw, ',');
+        if (user_files_raw == "nothing to show")
+            return;
+        auto user_files = split_str(user_files_raw, ',');
 
-        for (const auto& file : user_files)
+
+        if (server_files_raw != "nothing to show")
         {
-            bool in_server = false;
-            for (const auto& sync_file : server_files)
+            for (const auto& file : user_files)
             {
-                if (file == sync_file)
+                bool in_server = false;
+                for (const auto& sync_file : server_files)
                 {
-                    in_server = true;
-                    break;
+                    if (file == sync_file)
+                    {
+                        in_server = true;
+                        break;
+                    }
+                }
+                if (!in_server)
+                {
+                    file_manager->deleteFile(file);
                 }
             }
-            if (!in_server)
+        }
+        else {
+            for (const auto& file : user_files)
             {
-                deleteFile(file);
+                file_manager->deleteFile(file);
             }
         }
+
     } catch (SocketReadError& e) {
         cerr << e.what() << endl;
     }
@@ -378,28 +378,35 @@ void CommandHandler::listClient()
     }
 }
 
-void CommandHandler::getSyncFile(const string &filename) {
+void CommandHandler::getSyncFile(const string &filename, std::size_t file_size) {
     std::string tmp_name = '.' + filename + ".tmp";
     std::ofstream tmp_file{tmp_name, std::ofstream::binary};
 
     if (tmp_file)
     {
-        saveDataFlow(tmp_file);
+        saveDataFlow(tmp_file, file_size);
         tmp_file.close();
         file_manager->moveFile(tmp_name, filename);
     }
+    else {
+        std::cerr << filename << ": can't open" << std::endl;
+    }
 }
 
-void CommandHandler::saveDataFlow(std::ofstream &tmp_file) {
+void CommandHandler::saveDataFlow(std::ofstream &tmp_file, std::size_t file_size) {
     auto last_command = communication::DOWNLOAD;
+    communication::Packet packet{};
+    std::size_t current_size = 0;
     while(last_command != communication::OK)
     {
         try {
-            auto packet = transmitter->receivePacket();
+            packet = transmitter->receivePacket();
             last_command = packet.command;
+            current_size += packet.length;
+
             if (last_command == communication::DOWNLOAD)
             {
-                tmp_file.write((char*)packet._payload, packet.length);
+                tmp_file.write(packet._payload, packet.length);
             }
         } catch (SocketReadError& e) {
             std::cerr << e.what() << std::endl;
@@ -408,79 +415,155 @@ void CommandHandler::saveDataFlow(std::ofstream &tmp_file) {
     }
 }
 
-void CommandHandler::watchFiles() {
-    const uint16_t MAX_EVENTS = 512;
-    const uint16_t LEN_NAME = 32;  /* Assuming that the length of the filename won't exceed 16 bytes*/
-    const size_t EVENT_SIZE  = (sizeof (struct inotify_event)); /*size of one event*/
-    const size_t BUF_LEN = ( MAX_EVENTS * ( EVENT_SIZE + LEN_NAME ));
+void CommandHandler::watchFiles(std::future<void> exit_signal) {
+    watcher_fd = inotify_init();
 
-    watchfd = inotify_init();
+    { // Wait to start listen
+        mutex m{}; // useless mutex (cv only for sync), but required to cv
+        unique_lock lk(m);
+        should_start_cv->wait(lk);
+        lk.unlock();
+    }
 
-    int watch_descriptor = inotify_add_watch(watchfd, "sync_dir",
-                                             IN_CREATE | IN_MODIFY | IN_MOVED_TO | IN_DELETE);
-
-    if (watch_descriptor < 0)
+    if (file_manager != nullptr && inotify_add_watch(watcher_fd, file_manager->getPath().c_str(),
+                          IN_CREATE | IN_CLOSE_WRITE | IN_DELETE) < 0)
     {
-        cerr << "could not watch sync_dir, will not sync" << endl
-             << "Try use get_sync_dir and restart your client" << endl;
+        cerr << "error watching files " << endl << "check if you already create sync_dir" << endl;
         return;
     }
 
-    while (true)
+    const size_t EVENT_SIZE = sizeof(struct inotify_event);
+    const size_t BUF_SIZE = 512 * EVENT_SIZE;
+    char buf[BUF_SIZE] = {};
+
+    while(file_manager != nullptr)
     {
-        int i=0,length;
-        char buffer[BUF_LEN];
+        size_t i=0, len;
 
-        /* Step 3. Read buffer*/
-        length = read(watchfd,buffer,BUF_LEN);
+        bzero(buf, BUF_SIZE);
+        len = read(watcher_fd, buf, BUF_SIZE);
 
-        while (i<length)
-        {
-            auto *event = (struct inotify_event *) &buffer[i];
-            if(event->len) {
-                if (event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
-                    if (event->mask & IN_ISDIR) {
-                        printf("The directory %s was created/moved/modified. Will not sync\n", event->name);
-                    } else {
-                        string file_path = file_manager->getPath();
-                        file_path += "/";
-                        file_path.append(event->name);
-
-                        if (file_path[file_path.size() - 1] == '~')
-                            continue;
-                        printf("File %s was created/moved/modified. sync\n", file_path.c_str());
-
-                        in_use_semaphore->acquire();
-                        uploadFile(file_path.c_str());
-                        in_use_semaphore->release();
-                    }
-                } else if (event->mask & IN_DELETE) {
-                    if (event->mask & IN_ISDIR) {
-                        printf("The directory %s was deleted. Will not sync\n", event->name);
-                    } else {
-                        string filename = event->name;
-                        if (filename[filename.size() - 1] == '~')
-                            continue;
-                        printf("%s was deleted. sync\n", event->name);
-                        in_use_semaphore->acquire();
-                        deleteFile(filename.c_str());
-                        in_use_semaphore->release();
-                    }
-                }
-                i += EVENT_SIZE + event->len;
-            }
+        if (exit_signal.wait_for(std::chrono::milliseconds(1)) != future_status::timeout)
+        { // Break if got a exit signal
+            break;
         }
-    }
-}
 
-void CommandHandler::listenCommands() {
-    while(true) {
-        sleep(30);
-        if (file_manager != nullptr ) {
+        vector<string> need_upload{};
+        vector<string> need_update{};
+        vector<string> need_delete{};
+        // For each readed event
+        while(i < len)
+        {
+            auto* event = (struct inotify_event *)&buf[i];
+            if (event->len > 0)
+            {
+                string filename{event->name};
+                if (filename[0] == '.' || filename[filename.size()-1] == '~')
+                    continue;
+                if ((event->mask & IN_CREATE) && !(event->mask & IN_ISDIR)) {
+                    need_upload.push_back(filename);
+                }
+                if ((event->mask & IN_CLOSE_WRITE) && !(event->mask & IN_ISDIR)) {
+                    need_update.push_back(filename);
+                }
+                if ((event->mask & IN_DELETE) && !(event->mask & IN_ISDIR)) {
+                    need_delete.push_back(filename);
+                }
+            }
+            i += EVENT_SIZE + event->len;
+        }
+
+        for (const auto& filename : need_upload)
+        {
+            std::string sync_file_path = file_manager->getPath();
+            sync_file_path += "/" + filename;
+
             in_use_semaphore->acquire();
-            getSyncDir();
-            deleteOldFiles();
+            uploadFile(sync_file_path);
+            in_use_semaphore->release();
+        }
+
+        for (const auto& filename : need_update)
+        {
+            std::string sync_file_path = file_manager->getPath();
+            sync_file_path += "/" + filename;
+
+
+            in_use_semaphore->acquire();
+            deleteFile(filename);
+            uploadFile(sync_file_path);
+            in_use_semaphore->release();
+        }
+
+        for (const auto& filename : need_delete)
+        {
+            in_use_semaphore->acquire();
+            deleteFile(filename);
             in_use_semaphore->release();
         }
     }
+
+    close(watcher_fd);
+    cout << "watcher out" << endl;
 }
+
+
+
+void CommandHandler::simpleSync(std::future<void> exit_signal) {
+    { // Wait to start listen
+        mutex m{}; // useless mutex (cv only for sync), but required to cv
+        unique_lock lk(m);
+        should_start_cv->wait(lk);
+        lk.unlock();
+    }
+    while (exit_signal.wait_for(std::chrono::seconds (30)) == future_status::timeout) {
+        in_use_semaphore ->acquire();
+        deleteOldFiles();
+        getSyncDir();
+        in_use_semaphore->release();
+    }
+    cout << "simpleSync out" << endl;
+}
+
+//void CommandHandler::SyncDevice(std::future<void> exit_signal) {
+//    { // Wait to start listen
+//        mutex m{}; // useless mutex (cv only for sync), but required to cv
+//        unique_lock lk(m);
+//        should_start_cv->wait(lk);
+//        lk.unlock();
+//    }
+//
+//    cout << "start " << endl;
+//    while (exit_signal.wait_for(std::chrono::milliseconds(1)) != future_status::timeout) {
+//        Packet sync_packet = transmitter->popSyncRequest();
+//        in_use_semaphore->acquire();
+//        switch (sync_packet.command) {
+//            case communication::SYNC_UPLOAD:
+//                cout << "get a new file" << endl;
+//                getSyncFile(sync_packet._payload, );
+//                break;
+//            case communication::SYNC_DELETE:
+//                cout << "deleting a file" << endl;
+//                file_manager->deleteFile(sync_packet._payload);
+//        }
+//        in_use_semaphore->release();
+//
+//    }
+//}
+
+bool CommandHandler::shouldKeepRunning() const {
+    return keep_running;
+}
+
+void CommandHandler::setKeepRunning(bool keepRunning) {
+    keep_running = keepRunning;
+}
+
+FileManager *CommandHandler::getFileManager() const {
+    return file_manager;
+}
+
+void CommandHandler::setFileManager(FileManager *fileManager) {
+    file_manager = fileManager;
+}
+

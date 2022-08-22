@@ -218,4 +218,3 @@ void FileManager::getFileInfo(const std::string &filename, FileData *file_data_p
     }
     readers_mutex->release();
 }
-

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <semaphore>
+#include <sys/inotify.h>
 
 struct FileData {
     std::string filename;
