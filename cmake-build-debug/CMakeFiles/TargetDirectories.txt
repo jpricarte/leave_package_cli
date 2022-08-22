@@ -1,3 +1,0 @@
-/home/jpricarte/Documents/semestre/sisop II/leave_package_cli/cmake-build-debug/CMakeFiles/leave_package_cli.dir
-/home/jpricarte/Documents/semestre/sisop II/leave_package_cli/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/jpricarte/Documents/semestre/sisop II/leave_package_cli/cmake-build-debug/CMakeFiles/rebuild_cache.dir
