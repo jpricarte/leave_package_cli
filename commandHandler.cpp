@@ -174,16 +174,16 @@ void CommandHandler::uploadFile(const string &filename)
         cerr << e.what() << endl;
     }
 
-    size_t remeaning_size = filesize;
+    size_t remaining_size = filesize;
     // depois, envia o arquivo em partes de 1024 Bytes
     const unsigned int BUF_SIZE = 1024;
     char buf[BUF_SIZE] = {};
     unsigned int i = 2;
-    while(remeaning_size > 0)
+    while(remaining_size > 0)
     {
         bzero(buf, BUF_SIZE);
-        auto read_size = min((unsigned long)BUF_SIZE, remeaning_size);
-        remeaning_size -= read_size;
+        auto read_size = min((unsigned long)BUF_SIZE, remaining_size);
+        remaining_size -= read_size;
         file.read(buf, (unsigned int) read_size);
         Packet data_packet {
                 communication::UPLOAD,
@@ -522,6 +522,11 @@ void CommandHandler::simpleSync(std::future<void> exit_signal) {
     cout << "simpleSync out" << endl;
 }
 
+
+/*
+    Função não utilizada, servia para a replicação mais complexa 
+    explicada no relatório.
+*/
 //void CommandHandler::SyncDevice(std::future<void> exit_signal) {
 //    { // Wait to start listen
 //        mutex m{}; // useless mutex (cv only for sync), but required to cv

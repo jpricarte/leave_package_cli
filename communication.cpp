@@ -94,6 +94,10 @@ namespace communication {
         return packet;
     }
 
+    /*
+        Não usada, servia para a replicação apenas dos arquivos que
+        sofriam alguma atualização
+    */
     // Not used
     Packet Transmitter::popSyncRequest() {
         sync_request_semaphore->acquire();
