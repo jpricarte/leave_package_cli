@@ -7,22 +7,25 @@
 #include <vector>
 #include <thread>
 #include <csignal>
-#include <fstream>
 #include <future>
 
 #include "communication.h"
 #include "commandHandler.h"
+#include "UpdateHandler.h"
 
 
 using namespace std;
 using namespace communication;
 
-Transmitter* transmitter = nullptr;
+Transmitter* command_transmitter = nullptr;
 CommandHandler* command_handler = nullptr;
+
+Transmitter* update_transmitter = nullptr;
+UpdateHandler* update_handler = nullptr;
 
 int sendGoodbye()
 {
-    if (transmitter != nullptr)
+    if (command_transmitter != nullptr)
     {
         string end_connection = "goodbye my friend!";
         Packet finishConnectionPacket{
@@ -32,7 +35,7 @@ int sendGoodbye()
                 (unsigned int) strlen(end_connection.c_str()),
                 (char*) end_connection.c_str()
         };
-        transmitter->sendPacket(finishConnectionPacket);
+        command_transmitter->sendPacket(finishConnectionPacket);
     }
     command_handler->setKeepRunning(false);
 
@@ -61,23 +64,39 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1)
+    int command_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (command_sockfd == -1)
         printf("ERROR opening socket\n");
 
-    struct sockaddr_in serv_addr{};
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(atoi(argv[3]));
-    serv_addr.sin_addr = *((struct in_addr *)server->h_addr);
-    bzero(&(serv_addr.sin_zero), 8);
+    struct sockaddr_in command_addr{};
+    command_addr.sin_family = AF_INET;
+    command_addr.sin_port = htons(atoi(argv[3]));
+    command_addr.sin_addr = *((struct in_addr *)server->h_addr);
+    bzero(&(command_addr.sin_zero), 8);
 
-
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+    if (connect(command_sockfd, (struct sockaddr *) &command_addr, sizeof(command_addr)) < 0)
     {
         printf("ERROR connecting\n");
         return -1;
     }
-    transmitter = new communication::Transmitter(&serv_addr, sockfd);
+
+    int update_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (update_sockfd == -1)
+        printf("ERROR opening socket\n");
+
+    struct sockaddr_in update_addr{};
+    update_addr.sin_family = AF_INET;
+    update_addr.sin_port = htons(atoi(argv[3]));
+    update_addr.sin_addr = *((struct in_addr *)server->h_addr);
+    bzero(&(update_addr.sin_zero), 8);
+
+    if (connect(update_sockfd, (struct sockaddr *) &update_addr, sizeof(update_addr)) < 0)
+    {
+        printf("ERROR connecting\n");
+        return -1;
+    }
+
+    command_transmitter = new communication::Transmitter(&command_addr, command_sockfd);
 
     std::string username = argv[1];
     communication::Packet packet{
@@ -89,14 +108,14 @@ int main(int argc, char* argv[]) {
     };
 
     try {
-        transmitter->sendPacket(packet);
+        command_transmitter->sendPacket(packet);
     } catch (SocketWriteError& e) {
         std::cerr << e.what() << std::endl;
     }
 
     communication::Command response = communication::EXIT;
     try {
-        auto result = transmitter->receivePacket();
+        auto result = command_transmitter->receivePacket();
         cout << result._payload << endl;
         response = result.command;
     } catch (SocketReadError& e) {
@@ -107,11 +126,14 @@ int main(int argc, char* argv[]) {
     {
         cout << response << endl;
         cerr << "something went wrong in server" << endl;
-        close(sockfd);
+        close(command_sockfd);
+        close(update_sockfd);
         return -2;
     }
+    command_handler = new CommandHandler(command_transmitter);
 
-    command_handler = new CommandHandler(transmitter);
+    update_transmitter = new Transmitter{&update_addr, update_sockfd};
+    update_handler = new UpdateHandler{update_transmitter, command_handler->getFileManager()};
 
     std::promise<void> watcher_exit;
     std::future<void> watcher_sig = watcher_exit.get_future();
@@ -119,16 +141,13 @@ int main(int argc, char* argv[]) {
     std::future<void> listener_sig = listener_exit.get_future();
     auto sender = thread(&CommandHandler::handle, command_handler);
     auto watcher = thread(&CommandHandler::watchFiles, command_handler, move(watcher_sig));
-    auto listener = thread(&CommandHandler::simpleSync, command_handler, move(listener_sig));
+    auto listener = thread(&UpdateHandler::waitForFiles, update_handler);
 
     sender.join();
     sendGoodbye();
 
     watcher_exit.set_value();
-    listener_exit.set_value();
-
     watcher.detach();
-    listener.join();
 
     delete command_handler;
     return 0;

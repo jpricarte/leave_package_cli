@@ -49,9 +49,6 @@ namespace communication {
         struct sockaddr_in* client_addr;
         int socketfd;
 
-        std::counting_semaphore<10>* sync_request_semaphore;
-        std::vector<Packet> sync_requests;
-
     public:
         void sendPacket(const Packet& packet);
 
@@ -61,7 +58,6 @@ namespace communication {
 
         virtual ~Transmitter();
 
-        Packet popSyncRequest();
 
     };
 

@@ -505,54 +505,6 @@ void CommandHandler::watchFiles(std::future<void> exit_signal) {
 }
 
 
-
-void CommandHandler::simpleSync(std::future<void> exit_signal) {
-    { // Wait to start listen
-        mutex m{}; // useless mutex (cv only for sync), but required to cv
-        unique_lock lk(m);
-        should_start_cv->wait(lk);
-        lk.unlock();
-    }
-    while (exit_signal.wait_for(std::chrono::seconds (30)) == future_status::timeout) {
-        in_use_semaphore ->acquire();
-        deleteOldFiles();
-        getSyncDir();
-        in_use_semaphore->release();
-    }
-    cout << "simpleSync out" << endl;
-}
-
-
-/*
-    Função não utilizada, servia para a replicação mais complexa 
-    explicada no relatório.
-*/
-//void CommandHandler::SyncDevice(std::future<void> exit_signal) {
-//    { // Wait to start listen
-//        mutex m{}; // useless mutex (cv only for sync), but required to cv
-//        unique_lock lk(m);
-//        should_start_cv->wait(lk);
-//        lk.unlock();
-//    }
-//
-//    cout << "start " << endl;
-//    while (exit_signal.wait_for(std::chrono::milliseconds(1)) != future_status::timeout) {
-//        Packet sync_packet = transmitter->popSyncRequest();
-//        in_use_semaphore->acquire();
-//        switch (sync_packet.command) {
-//            case communication::SYNC_UPLOAD:
-//                cout << "get a new file" << endl;
-//                getSyncFile(sync_packet._payload, );
-//                break;
-//            case communication::SYNC_DELETE:
-//                cout << "deleting a file" << endl;
-//                file_manager->deleteFile(sync_packet._payload);
-//        }
-//        in_use_semaphore->release();
-//
-//    }
-//}
-
 bool CommandHandler::shouldKeepRunning() const {
     return keep_running;
 }
